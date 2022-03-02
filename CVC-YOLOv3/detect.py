@@ -6,10 +6,8 @@ from os.path import isfile, join
 import random
 import tempfile
 import time
-import copy
-import multiprocessing
-import subprocess
 import shutil
+from typing import List, Tuple
 import cv2
 
 from pathlib import Path
@@ -17,25 +15,24 @@ from pathlib import Path
 import torch
 import torch.cuda
 import torch.backends
-import torch.nn as nn
-from torch.utils.data import DataLoader
 
 from PIL import Image, ImageDraw
 
 import torchvision.transforms.functional
 from models import Darknet
-from utils.datasets import ImageLabelDataset
 from utils.nms import nms
-from utils.utils import xywh2xyxy, calculate_padding
+from utils.utils import calculate_padding
 
 import warnings
 from tqdm import tqdm
 
-warnings.filterwarnings("ignore")
+import tempfile
 
-detection_tmp_path = "/tmp/detect/"
+warnings.filterwarnings("default")
 
-from dataclasses import dataclass
+detection_tmp_path = tempfile.mkdtemp()
+
+DetectionResults = torch.Tensor # for now, but we should make it better
 
 class Detector:
     def __init__(self, 
@@ -51,104 +48,95 @@ class Detector:
         object_loss,
         vanilla_anchor
     ) -> None:
-        if False: #torch.cuda.is_available():
+        if torch.cuda.is_available():
             self.device = torch.device('cuda:0')
             self.setup_cuda()
+            print('Using GPU')
         else:
             self.device = torch.device('cpu')
+            print('Using CPU')
         
         random.seed(0)
         torch.manual_seed(0)
         
         self.model = Darknet(config_path=model_cfg,xy_loss=xy_loss,wh_loss=wh_loss,no_object_loss=no_object_loss,object_loss=object_loss,vanilla_anchor=vanilla_anchor)
 
-        # Load weights
-        print('Loading weights')
         self.model.load_weights(weights_path, self.model.get_start_weight_dim())
 
-        print('Moving to device')
-        print(self.device)
         self.model.to(self.device, non_blocking=True)
+        self.model.eval()
+        
+        self.nms_thres = nms_thres
+        self.conf_thres = conf_thres
 
-        print('got here')
-        self.detect(Path(target_path),
-            output_path,
-            conf_thres=conf_thres,
-            nms_thres=nms_thres)
+        self.detect(Path(target_path), output_path)
 
     def setup_cuda(self):
         torch.manual_seed(0)
-        # torch.backends.cudnn.benchmark = True
         torch.cuda.empty_cache()
 
 
-    def single_img_detect(self,
-        target_path,
-        output_path,
-        mode,
-        conf_thres,
-        nms_thres
-    ):
-
-        img = Image.open(target_path).convert('RGB')
+    def preprocess_image(self, img: Image.Image) -> torch.Tensor:
+        img = img.convert('RGB')
         w, h = img.size
         new_width, new_height = self.model.img_size()
-        pad_h, pad_w, ratio = calculate_padding(h, w, new_height, new_width)
-        img = torchvision.transforms.functional.pad(img, padding=(pad_w, pad_h, pad_w, pad_h), fill=127, padding_mode="constant")
-        img = torchvision.transforms.functional.resize(img, (new_height, new_width))
+        pad_h, pad_w, _ = calculate_padding(h, w, new_height, new_width)
+        img_tensor = torchvision.transforms.functional.to_tensor(img)
+        img_tensor = torchvision.transforms.functional.pad(img_tensor, padding=[pad_w, pad_h, pad_w, pad_h], fill=127, padding_mode="constant")
+        img_tensor = torchvision.transforms.functional.resize(img_tensor, [new_height, new_width])
 
-        bw = self.model.get_bw()
-        if bw:
-            img = torchvision.transforms.functional.to_grayscale(img, num_output_channels=1)
+        if self.model.get_bw():
+            raise NotImplementedError("Grayscale mode is not implemented")
+            img_tensor = torchvision.transforms.functional.to_grayscale(img_tensor, num_output_channels=1)
 
-        img = torchvision.transforms.functional.to_tensor(img)
-        img = img.unsqueeze(0)
-        
+        return img_tensor.unsqueeze(0)
+
+    def detect_and_draw_bounding_boxes(self, img: Image.Image) -> Image.Image:
+        detection_results = self.single_img_detect(img)
+        img_with_bounding_boxes = self.draw_bounding_boxes(img, detection_results)
+        return img_with_bounding_boxes
+
+    def single_img_detect(self,
+        img: Image.Image,
+    ) -> DetectionResults:
+        img_tensor = self.preprocess_image(img)
         with torch.no_grad():
-            self.model.eval()
-            img = img.to(self.device, non_blocking=True)
-            # output,first_layer,second_layer,third_layer = model(img)
-            output = self.model(img)
+            img_tensor = img_tensor.to(self.device, non_blocking=True)
+            output = self.model(img_tensor)
 
+            detections: torch.Tensor = output[0]
+            detections = detections[detections[:, 4] > self.conf_thres]
+            box_corner = torch.zeros((detections.shape[0], 4), device=detections.device)
+            xy: torch.Tensor = detections[:, 0:2]
+            wh = detections[:, 2:4] / 2
+            box_corner[:, 0:2] = xy - wh
+            box_corner[:, 2:4] = xy + wh
+            probabilities = detections[:, 4]
+            nms_indices = nms(box_corner, probabilities, self.nms_thres)
+            main_box_corner = box_corner[nms_indices]
+            if nms_indices.shape[0] == 0:  
+                raise Exception("I don't even know what happened")
+            
+            return main_box_corner
 
-            for detections in output:
-                detections = detections[detections[:, 4] > conf_thres]
-                box_corner = torch.zeros((detections.shape[0], 4), device=detections.device)
-                xy = detections[:, 0:2]
-                wh = detections[:, 2:4] / 2
-                box_corner[:, 0:2] = xy - wh
-                box_corner[:, 2:4] = xy + wh
-                probabilities = detections[:, 4]
-                nms_indices = nms(box_corner, probabilities, nms_thres)
-                main_box_corner = box_corner[nms_indices]
-                if nms_indices.shape[0] == 0:  
-                    continue
-            img_with_boxes = Image.open(target_path)
-            draw = ImageDraw.Draw(img_with_boxes)
-            w, h = img_with_boxes.size
+    def draw_bounding_boxes(self, original_image: Image.Image, main_box_corner: DetectionResults):
+        w, h = original_image.size
+        new_width, new_height = self.model.img_size()
+        pad_h, pad_w, ratio = calculate_padding(h, w, new_height, new_width)
+        draw = ImageDraw.Draw(original_image)
 
-            for i in range(len(main_box_corner)):
-                x0 = main_box_corner[i, 0].to('cpu').item() / ratio - pad_w
-                y0 = main_box_corner[i, 1].to('cpu').item() / ratio - pad_h
-                x1 = main_box_corner[i, 2].to('cpu').item() / ratio - pad_w
-                y1 = main_box_corner[i, 3].to('cpu').item() / ratio - pad_h 
-                draw.rectangle((x0, y0, x1, y1), outline="red")
-
-            if mode == 'image':
-                img_with_boxes.save(os.path.join(output_path,target_path.name))
-                return os.path.join(output_path,target_path.name)
-            else:
-                img_with_boxes.save(target_path)
-                return target_path
-
-    def draw_bounding_boxes(self, image):
-        pass
+        for i in range(len(main_box_corner)):
+            x0 = main_box_corner[i, 0].to('cpu').item() / ratio - pad_w
+            y0 = main_box_corner[i, 1].to('cpu').item() / ratio - pad_h
+            x1 = main_box_corner[i, 2].to('cpu').item() / ratio - pad_w
+            y1 = main_box_corner[i, 3].to('cpu').item() / ratio - pad_h 
+            draw.rectangle((x0, y0, x1, y1), outline="red")
+        
+        return original_image
 
     def detect(self,
         target_filepath: Path,
-        output_path,
-        conf_thres,
-        nms_thres
+        output_path: Path
     ):
         mode_by_extension = {
             '.jpg': 'image',
@@ -165,68 +153,63 @@ class Detector:
         mode = mode_by_extension[extension]
         print("Detection Mode is: " + mode)
 
-        
-        raw_file_name = target_filepath.stem
-
         if mode == 'image':
-            detection_path = self.single_img_detect(target_path=target_filepath,output_path=output_path,mode=mode,conf_thres=conf_thres,nms_thres=nms_thres)
-
-            print(f'Please check output image at {detection_path}')
-
+            img_with_bounding_boxes = self.detect_and_draw_bounding_boxes(Image.open(target_filepath))
+            img_with_bounding_boxes.show()
         elif mode == 'video':
-            if os.path.exists(detection_tmp_path):
-                shutil.rmtree(detection_tmp_path)  # delete output folder
-            os.makedirs(detection_tmp_path)  # make new output folder
+            raise NotImplementedError("Video detection is not implemented")
+            self.video_detect(target_filepath, output_path)
 
-            vidcap = cv2.VideoCapture(target_filepath)
-            success,image = vidcap.read()
-            count = 0
-
-            
-
-            while success:
-                cv2.imwrite(detection_tmp_path + "/frame%d.jpg" % count, image)     # save frame as JPEG file      
-                success,image = vidcap.read()
-                count += 1
-
-            # Find OpenCV version
-            (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
-
-            if int(major_ver)  < 3 :
-                fps = vidcap.get(cv2.cv.CV_CAP_PROP_FPS)
-                print ("Frames per second using video.get(cv2.cv.CV_CAP_PROP_FPS): {0}".format(fps))
-            else :
-                fps = vidcap.get(cv2.CAP_PROP_FPS)
-                print ("Frames per second using video.get(cv2.CAP_PROP_FPS) : {0}".format(fps))
-            vidcap.release(); 
-
-            frame_array = []
-            files = [f for f in os.listdir(detection_tmp_path) if isfile(join(detection_tmp_path, f))]
+    def video_detect(self, target_filepath: Path, output_path: Path):
         
-            #for sorting the file names properly
-            files.sort(key = lambda x: int(x[5:-4]))
-            for i in tqdm(files,desc='Doing Single Image Detection'):
-                filename=detection_tmp_path + i
-                
-                detection_path = self.single_img_detect(target_path=filename,output_path=output_path,mode=mode,conf_thres=conf_thres,nms_thres=nms_thres)
-                #reading each files
-                img = cv2.imread(detection_path)
-                height, width, layers = img.shape
-                size = (width,height)
-                frame_array.append(img)
-
-            local_output_uri = output_path + raw_file_name + ".mp4"
+        files, fps = self.split_video(target_filepath)
+        #for sorting the file names properly
+        files.sort(key = lambda x: int(x[5:-4]))
+        
+        frame_array = []
+        for i in tqdm(files,desc='Doing Single Image Detection for every frame'):
+            filename=detection_tmp_path + i
             
-            video_output = cv2.VideoWriter(local_output_uri,cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
+            detection_path = self.single_img_detect(target_path=filename,output_path=output_path,mode='video')
+            #reading each files
+            img = cv2.imread(detection_path)
+            height, width, layers = img.shape
+            size = (width,height)
+            frame_array.append(img)
 
-            for frame in tqdm(frame_array,desc='Creating Video'):
-                # writing to a image array
-                video_output.write(frame)
-            video_output.release()
-            print(f'please check output video at {local_output_uri}')
-            shutil.rmtree(detection_tmp_path)
-        print("Please go to the link below to check the detection output file: ")
-        print(output_path)
+        local_output_uri = output_path / target_filepath.with_suffix(".mp4")
+        
+        video_output = cv2.VideoWriter(local_output_uri,cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
+
+        for frame in tqdm(frame_array,desc='Creating Video'):
+            video_output.write(frame)
+        video_output.release()
+        print(f'please check output video at {local_output_uri}')
+        shutil.rmtree(detection_tmp_path)
+
+    def split_video(self, target_filepath: Path) -> Tuple[List[str], float]:
+        vidcap = cv2.VideoCapture(target_filepath)
+        success,image = vidcap.read()
+        count = 0
+
+        while success:
+            cv2.imwrite(detection_tmp_path + "/frame%d.jpg" % count, image)     # save frame as JPEG file      
+            success,image = vidcap.read()
+            count += 1
+
+        # Find OpenCV version
+        (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
+
+        if int(major_ver)  < 3 :
+            fps = vidcap.get(cv2.cv.CV_CAP_PROP_FPS)
+            print ("Frames per second using video.get(cv2.cv.CV_CAP_PROP_FPS): {0}".format(fps))
+        else :
+            fps = vidcap.get(cv2.CAP_PROP_FPS)
+            print ("Frames per second using video.get(cv2.CAP_PROP_FPS) : {0}".format(fps))
+        vidcap.release(); 
+
+        files = [f for f in os.listdir(detection_tmp_path) if isfile(join(detection_tmp_path, f))]
+        return files, fps
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -244,14 +227,12 @@ if __name__ == '__main__':
 
     add_bool_arg('vanilla_anchor', default=False, help="whether to use vanilla anchor boxes for training")
     ##### Loss Constants #####
-    parser.add_argument('--xy_loss', type=float, default=2, help='confidence loss for x and y')
-    parser.add_argument('--wh_loss', type=float, default=1.6, help='confidence loss for width and height')
-    parser.add_argument('--no_object_loss', type=float, default=25, help='confidence loss for background')
-    parser.add_argument('--object_loss', type=float, default=0.1, help='confidence loss for foreground')
+    parser.add_argument('--xy-loss', type=float, default=2, help='confidence loss for x and y')
+    parser.add_argument('--wh-loss', type=float, default=1.6, help='confidence loss for width and height')
+    parser.add_argument('--no-object-loss', type=float, default=25, help='confidence loss for background')
+    parser.add_argument('--object-loss', type=float, default=0.1, help='confidence loss for foreground')
 
     opt = parser.parse_args()
-
-    print('got here')
 
     d = Detector(target_path=opt.target_path,
          output_path=opt.output_path,
