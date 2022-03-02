@@ -133,8 +133,8 @@ class YOLOLayer(nn.Module):
         self.object_loss = object_loss
         self.conv_activation = conv_activation
 
-        self.mse_loss = nn.MSELoss(size_average=True)  # Coordinate loss
-        self.bce_loss = nn.BCELoss(size_average=True)  # Confidence loss
+        self.mse_loss = nn.MSELoss(reduction='mean')  # Coordinate loss
+        self.bce_loss = nn.BCELoss(reduction='mean')  # Confidence loss
         self.ce_loss = nn.CrossEntropyLoss()  # Class loss
 
     def forward(self, sample, targets=None):
@@ -338,14 +338,13 @@ class Darknet(nn.Module):
         return (sum(output), *total_losses) if is_training else torch.cat(output, 1)
     def load_weights(self, weights_path, start_weight_dim):
         # Open the weights file
-        fp = open(weights_path, "rb")
-        header = np.fromfile(fp, dtype=np.int32, count=5)  # First five are header values
-        # Needed to write header when saving weights
-        self.header_info = header
+        with open(weights_path, "rb") as fp:
+            header = np.fromfile(fp, dtype=np.int32, count=5)  # First five are header values
+            # Needed to write header when saving weights
+            self.header_info = header
 
-        self.seen = header[3]
-        weights = np.fromfile(fp, dtype=np.float32)  # The rest are weights
-        fp.close()
+            self.seen = header[3]
+            weights = np.fromfile(fp, dtype=np.float32)  # The rest are weights
 
         ptr = 0
         yolo_count = 0
@@ -398,25 +397,22 @@ class Darknet(nn.Module):
 
     def save_weights(self, path, cutoff=-1):
 
-        fp = open(path, "wb")
-        self.header_info[3] = self.seen
-        self.header_info.tofile(fp)
-
-        # Iterate through layers
-        for i, (module_def, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-            if module_def["type"] == "convolutional":
-                conv_layer = module[0]
-                # If batch norm, load bn first
-                if module_def["filters"] != 'preyolo':
-                    bn_layer = module[1]
-                    bn_layer.bias.data.cpu().numpy().tofile(fp)
-                    bn_layer.weight.data.cpu().numpy().tofile(fp)
-                    bn_layer.running_mean.data.cpu().numpy().tofile(fp)
-                    bn_layer.running_var.data.cpu().numpy().tofile(fp)
-                # Load conv bias
-                else:
-                    conv_layer.bias.data.cpu().numpy().tofile(fp)
-                # Load conv weights
-                conv_layer.weight.data.cpu().numpy().tofile(fp)
-
-        fp.close()
+        with open(path, "wb") as fp:
+            self.header_info[3] = self.seen
+            self.header_info.tofile(fp)
+            # Iterate through layers
+            for i, (module_def, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+                if module_def["type"] == "convolutional":
+                    conv_layer = module[0]
+                    # If batch norm, load bn first
+                    if module_def["filters"] != 'preyolo':
+                        bn_layer = module[1]
+                        bn_layer.bias.data.cpu().numpy().tofile(fp)
+                        bn_layer.weight.data.cpu().numpy().tofile(fp)
+                        bn_layer.running_mean.data.cpu().numpy().tofile(fp)
+                        bn_layer.running_var.data.cpu().numpy().tofile(fp)
+                    # Load conv bias
+                    else:
+                        conv_layer.bias.data.cpu().numpy().tofile(fp)
+                    # Load conv weights
+                    conv_layer.weight.data.cpu().numpy().tofile(fp)
