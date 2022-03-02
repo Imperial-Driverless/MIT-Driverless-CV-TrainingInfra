@@ -26,11 +26,13 @@ from utils.utils import calculate_padding
 import warnings
 from tqdm import tqdm
 
+import numpy
+
 import tempfile
 
 warnings.filterwarnings("default")
 
-detection_tmp_path = tempfile.mkdtemp()
+detection_tmp_path = Path(tempfile.mkdtemp())
 
 DetectionResults = torch.Tensor # for now, but we should make it better
 
@@ -69,7 +71,7 @@ class Detector:
         self.nms_thres = nms_thres
         self.conf_thres = conf_thres
 
-        self.detect(Path(target_path), output_path)
+        self.detect(Path(target_path), Path(output_path))
 
     def setup_cuda(self):
         torch.manual_seed(0)
@@ -157,7 +159,6 @@ class Detector:
             img_with_bounding_boxes = self.detect_and_draw_bounding_boxes(Image.open(target_filepath))
             img_with_bounding_boxes.show()
         elif mode == 'video':
-            raise NotImplementedError("Video detection is not implemented")
             self.video_detect(target_filepath, output_path)
 
     def video_detect(self, target_filepath: Path, output_path: Path):
@@ -167,19 +168,21 @@ class Detector:
         files.sort(key = lambda x: int(x[5:-4]))
         
         frame_array = []
+        size = (0, 0)
         for i in tqdm(files,desc='Doing Single Image Detection for every frame'):
-            filename=detection_tmp_path + i
+            assert isinstance(i, str)
+            frame_file=detection_tmp_path / i
             
-            detection_path = self.single_img_detect(target_path=filename,output_path=output_path,mode='video')
+            bounding_boxes_img_pil = self.detect_and_draw_bounding_boxes(Image.open(frame_file))
+            bounding_boxes_img_opencv = numpy.array(bounding_boxes_img_pil)[:, :, ::-1].copy()
             #reading each files
-            img = cv2.imread(detection_path)
-            height, width, layers = img.shape
+            height, width, layers = bounding_boxes_img_opencv.shape
             size = (width,height)
-            frame_array.append(img)
+            frame_array.append(bounding_boxes_img_opencv)
 
-        local_output_uri = output_path / target_filepath.with_suffix(".mp4")
+        local_output_uri = output_path / target_filepath.with_suffix(".mp4").name
         
-        video_output = cv2.VideoWriter(local_output_uri,cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
+        video_output = cv2.VideoWriter(str(local_output_uri),cv2.VideoWriter_fourcc(*'MPEG'), fps, size)
 
         for frame in tqdm(frame_array,desc='Creating Video'):
             video_output.write(frame)
@@ -188,12 +191,12 @@ class Detector:
         shutil.rmtree(detection_tmp_path)
 
     def split_video(self, target_filepath: Path) -> Tuple[List[str], float]:
-        vidcap = cv2.VideoCapture(target_filepath)
+        vidcap = cv2.VideoCapture(str(target_filepath))
         success,image = vidcap.read()
         count = 0
 
         while success:
-            cv2.imwrite(detection_tmp_path + "/frame%d.jpg" % count, image)     # save frame as JPEG file      
+            cv2.imwrite(str(detection_tmp_path) + "/frame%d.jpg" % count, image)     # save frame as JPEG file      
             success,image = vidcap.read()
             count += 1
 
