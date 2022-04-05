@@ -1,6 +1,7 @@
 ### Description
 
 The repo is originally forked from https://github.com/ultralytics/yolov3 and contains inference and training code for YOLOv3 in PyTorch.
+Moreover a more detailed readme can be found as README_MIT.md however this is a summary that leverages the use of a bash script to make setting up easier.
 
 ## Requirements:
 
@@ -26,50 +27,7 @@ The repo is originally forked from https://github.com/ultralytics/yolov3 and con
 ## Usage
 ### 1.Download our dataset
 
-##### Download through GCP Tookit
-###### 1.1.1 Image dataset:
-```
-gsutil cp -p gs://mit-driverless-open-source/YOLO_Dataset.zip ./dataset/
-```
-then unzip 
-```
-unzip dataset/YOLO_Dataset.zip -d ./dataset/
-```
-###### 1.1.2 Label csv file:
-```
-gsutil cp -p gs://mit-driverless-open-source/yolov3-training/all.csv ./dataset/
-```
-```
-gsutil cp -p gs://mit-driverless-open-source/yolov3-training/train.csv ./dataset/
-```
-```
-gsutil cp -p gs://mit-driverless-open-source/yolov3-training/validate.csv ./dataset/
-```
-###### 1.1.3 Initial weights file:
-YoloV3 initial weights:
-```
-gsutil cp -p  gs://mit-driverless-open-source/yolov3-training/sample-yolov3.weights ./dataset/
-```
-
-YoloV3-tiny initial weights:
-```
-gsutil cp =p gs://mit-driverless-open-source/yolov3-training/sample-yolov3-tiny.weights ./dataset/
-```
-
-##### Download manually (Optional)
-You can download image dataset and label csv from the link below and unzip them into `./dataset/YOLO_Dataset/` 
-
-[Image dataset](https://storage.cloud.google.com/mit-driverless-open-source/YOLO_Dataset.zip?authuser=1)
-
-[All label csv](https://storage.cloud.google.com/mit-driverless-open-source/yolov3-training/all.csv?authuser=1)
-
-[Train label csv](https://storage.cloud.google.com/mit-driverless-open-source/yolov3-training/train.csv?authuser=1)
-
-[Validate label csv](https://storage.cloud.google.com/mit-driverless-open-source/yolov3-training/validate.csv?authuser=1)
-
-[Initial YOLOv3 weights file](https://storage.cloud.google.com/mit-driverless-open-source/yolov3-training/sample-yolov3.weights?authuser=1)
-
-[Initial YOLOv3-tiny weights file](https://storage.cloud.google.com/mit-driverless-open-source/yolov3-training/sample-yolov3-tiny.weights?authuser=1)
+From the CVC-YOLOv3 folder run the bash script get-required-data.sh which will save the dataset along with the different partitions of the csv files all in the /dataset folder and save the pretrained yolo weights in the yolo_weights/ directory
 
 #### 1.2 Environment Setup (Optional)
 
@@ -77,17 +35,7 @@ You can download image dataset and label csv from the link below and unzip them 
 sudo python3 setup.py build develop
 ```
 
-### 2.Training
-
-```
-python3 train.py --model_cfg=model_cfg/yolo_baseline.cfg --weights_path=dataset/sample-yolov3.weights
-```
-
-Once you've finished training, you can access the weights file in `./outputs/`
-
-(Optional: We also provide tiny yolo cfg, with no evaluation metrics available)
-
-### 3.Inference
+### 2.Inference
 
 #### To download our pretrained YOLO weights for *Formula Student Standard*, click ***[here](https://storage.googleapis.com/mit-driverless-open-source/pretrained_yolo.weights)***
 
