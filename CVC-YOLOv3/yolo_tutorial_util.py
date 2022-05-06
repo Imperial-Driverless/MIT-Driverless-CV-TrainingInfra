@@ -81,14 +81,20 @@ def run_epoch(label_prefix, data_loader, num_steps, optimizer, model, epoch, num
 
 
 def single_img_detect(target_path,output_path,mode,model,device,conf_thres,nms_thres):
-
+    """
+    Saves:
+        img_with_boxes: An image with rectangles showing where the cone is.
+    """
     img = Image.open(target_path).convert('RGB')
     w, h = img.size
     new_width, new_height = model.img_size()
     pad_h, pad_w, ratio = calculate_padding(h, w, new_height, new_width)
+    # Add padding to the image
     img = torchvision.transforms.functional.pad(img, padding=(pad_w, pad_h, pad_w, pad_h), fill=(127, 127, 127), padding_mode="constant")
+    # Resize the image
     img = torchvision.transforms.functional.resize(img, (new_height, new_width))
 
+    # Check if the model needs the input image to be Black and White
     bw = model.get_bw()
     if bw:
         img = torchvision.transforms.functional.to_grayscale(img, num_output_channels=1)
@@ -100,8 +106,8 @@ def single_img_detect(target_path,output_path,mode,model,device,conf_thres,nms_t
         model.eval()
         img = img.to(device, non_blocking=True)
         # output,first_layer,second_layer,third_layer = model(img)
+        # TODO: What does the model (Darknet) output (the format)?
         output = model(img)
-
 
         for detections in output:
             detections = detections[detections[:, 4] > conf_thres]
@@ -119,6 +125,7 @@ def single_img_detect(target_path,output_path,mode,model,device,conf_thres,nms_t
         draw = ImageDraw.Draw(img_with_boxes)
         w, h = img_with_boxes.size
 
+        # Draw the rectangles in the images
         for i in range(len(main_box_corner)):
             x0 = main_box_corner[i, 0].to('cpu').item() / ratio - pad_w
             y0 = main_box_corner[i, 1].to('cpu').item() / ratio - pad_h
@@ -127,6 +134,7 @@ def single_img_detect(target_path,output_path,mode,model,device,conf_thres,nms_t
             draw.rectangle((x0, y0, x1, y1), outline="red")
 
         if mode == 'image':
+            # Save the images with boxes drawn
             img_with_boxes.save(os.path.join(output_path,target_path.split('/')[-1]))
             return os.path.join(output_path,target_path.split('/')[-1])
         else:
@@ -148,12 +156,11 @@ def detect(target_path,
 
         mode = None
 
+        # Find the type of file we are dealing with
         if os.path.splitext(target_filepath)[-1].lower() in img_formats:
             mode = 'image'
-        
         elif os.path.splitext(target_filepath)[-1].lower() in vid_formats:
             mode = 'video'
-        
         print("Detection Mode is: " + mode)
 
         raw_file_name = target_filepath.split('/')[-1].split('.')[0].split('_')[-4:]
@@ -165,16 +172,17 @@ def detect(target_path,
             print(f'Please check output image at {detection_path}')
 
         elif mode == 'video':
+            # Create a temporary path for storing the frames where the output is detected.
             if os.path.exists(detection_tmp_path):
                 shutil.rmtree(detection_tmp_path)  # delete output folder
             os.makedirs(detection_tmp_path)  # make new output folder
 
+            # Grabs and returns the next video frame
             vidcap = cv2.VideoCapture(target_filepath)
             success,image = vidcap.read()
             count = 0
 
-            
-
+            # If there is a next frame, store the frame in temp path
             while success:
                 cv2.imwrite(detection_tmp_path + "/frame%d.jpg" % count, image)     # save frame as JPEG file      
                 success,image = vidcap.read()
@@ -183,19 +191,19 @@ def detect(target_path,
             # Find OpenCV version
             (major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
 
-            if int(major_ver)  < 3 :
+            if int(major_ver)< 3:
                 fps = vidcap.get(cv2.cv.CV_CAP_PROP_FPS)
-                print ("Frames per second using video.get(cv2.cv.CV_CAP_PROP_FPS): {0}".format(fps))
-            else :
+                print("Frames per second using video.get(cv2.cv.CV_CAP_PROP_FPS): {0}".format(fps))
+            else:
                 fps = vidcap.get(cv2.CAP_PROP_FPS)
-                print ("Frames per second using video.get(cv2.CAP_PROP_FPS) : {0}".format(fps))
-            vidcap.release(); 
+                print("Frames per second using video.get(cv2.CAP_PROP_FPS) : {0}".format(fps))
+            vidcap.release();  # Closes the video file
 
             frame_array = []
             files = [f for f in os.listdir(detection_tmp_path) if isfile(join(detection_tmp_path, f))]
         
-            #for sorting the file names properly
-            files.sort(key = lambda x: int(x[5:-4]))
+            # Detects all the cones in the frames
+            files.sort(key = lambda x: int(x[5:-4])) # for sorting the file names properly
             for i in tqdm(files,desc='Doing Single Image Detection'):
                 filename=detection_tmp_path + i
                 
@@ -206,10 +214,9 @@ def detect(target_path,
                 size = (width,height)
                 frame_array.append(img)
 
+            # Compiles all the frames together to create a video
             local_output_uri = output_path + raw_file_name + ".mp4"
-            
             video_output = cv2.VideoWriter(local_output_uri,cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
-
             for frame in tqdm(frame_array,desc='Creating Video'):
                 # writing to a image array
                 video_output.write(frame)
