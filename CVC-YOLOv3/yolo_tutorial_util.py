@@ -30,6 +30,9 @@ from utils.nms import nms
 from utils.utils import calculate_padding
 from tqdm import tqdm
 
+# Code added
+from crop_image import crop_image
+
 cuda = torch.cuda.is_available()
 device = torch.device('cuda:0' if cuda else 'cpu')
 num_cpu = multiprocessing.cpu_count() if cuda else 0
@@ -125,13 +128,23 @@ def single_img_detect(target_path,output_path,mode,model,device,conf_thres,nms_t
         draw = ImageDraw.Draw(img_with_boxes)
         w, h = img_with_boxes.size
 
+        cones = []
         # Draw the rectangles in the images
         for i in range(len(main_box_corner)):
             x0 = main_box_corner[i, 0].to('cpu').item() / ratio - pad_w
             y0 = main_box_corner[i, 1].to('cpu').item() / ratio - pad_h
             x1 = main_box_corner[i, 2].to('cpu').item() / ratio - pad_w
-            y1 = main_box_corner[i, 3].to('cpu').item() / ratio - pad_h 
+            y1 = main_box_corner[i, 3].to('cpu').item() / ratio - pad_h
+            cones.append(crop_image(img_with_boxes, x0, y0, x1, y1))
             draw.rectangle((x0, y0, x1, y1), outline="red")
+
+        #Save image of cones
+        d = 1
+        for cone in cones:
+            target_path = f"cones_{d}.jpg"
+            cones_path = "outputs/cones/"
+            cone.save(os.path.join(cones_path, target_path.split('/')[-1]))
+            d += 1
 
         if mode == 'image':
             # Save the images with boxes drawn
