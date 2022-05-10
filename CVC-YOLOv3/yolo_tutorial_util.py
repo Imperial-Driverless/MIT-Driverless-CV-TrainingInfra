@@ -145,6 +145,7 @@ def single_img_detect(target_path,output_path,mode,model,device,conf_thres,nms_t
             cones_path = "outputs/cones/"
             cone.save(os.path.join(cones_path, target_path.split('/')[-1]))
             d += 1
+        print("Images have been cropped")
 
         if mode == 'image':
             # Save the images with boxes drawn
