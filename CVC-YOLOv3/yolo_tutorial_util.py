@@ -128,22 +128,19 @@ def single_img_detect(target_path,output_path,mode,model,device,conf_thres,nms_t
         draw = ImageDraw.Draw(img_with_boxes)
         w, h = img_with_boxes.size
 
-        cones = []
-        # Draw the rectangles in the images
+        d = 1
+        # Draw the rectangles in the images and save images of cones
         for i in range(len(main_box_corner)):
+            # target_cones_path = f"cones_{d}.jpg"
+            target_cones_path = "cone.jpg"
+            cones_path = "outputs/cones/"
             x0 = main_box_corner[i, 0].to('cpu').item() / ratio - pad_w
             y0 = main_box_corner[i, 1].to('cpu').item() / ratio - pad_h
             x1 = main_box_corner[i, 2].to('cpu').item() / ratio - pad_w
             y1 = main_box_corner[i, 3].to('cpu').item() / ratio - pad_h
-            cones.append(crop_image(img_with_boxes, x0, y0, x1, y1))
+            cropped_image = img.crop((x0, y0, x1, y1))
+            cropped_image.save(os.path.join(cones_path, target_cones_path.split('/')[-1]))
             draw.rectangle((x0, y0, x1, y1), outline="red")
-
-        #Save image of cones
-        d = 1
-        for cone in cones:
-            target_path = f"cones_{d}.jpg"
-            cones_path = "outputs/cones/"
-            cone.save(os.path.join(cones_path, target_path.split('/')[-1]))
             d += 1
         print("Images have been cropped")
 
