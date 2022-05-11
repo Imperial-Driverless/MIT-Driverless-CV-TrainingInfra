@@ -21,5 +21,6 @@
 .python-version
 */gs/*
 
-CVC-YOLOv3/dataset/*
-CVC-YOLOv3/pretrained_yolo.weights
+**/dataset
+**/yolo_weights
+**/rektnet_weights

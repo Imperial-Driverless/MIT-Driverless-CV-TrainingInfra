@@ -57,6 +57,9 @@ class Detector:
         else:
             self.device = torch.device('cpu')
             print('Using CPU')
+
+        self.device = torch.device('cpu')
+        print('Using CPU')
         
         random.seed(0)
         torch.manual_seed(0)
@@ -83,9 +86,9 @@ class Detector:
         w, h = img.size
         new_width, new_height = self.model.img_size()
         pad_h, pad_w, _ = calculate_padding(h, w, new_height, new_width)
-        img_tensor = torchvision.transforms.functional.to_tensor(img)
-        img_tensor = torchvision.transforms.functional.pad(img_tensor, padding=[pad_w, pad_h, pad_w, pad_h], fill=127, padding_mode="constant")
+        img_tensor = torchvision.transforms.functional.pad(img, padding=(pad_w, pad_h, pad_w, pad_h), fill=127, padding_mode="constant")
         img_tensor = torchvision.transforms.functional.resize(img_tensor, [new_height, new_width])
+        img_tensor = torchvision.transforms.functional.to_tensor(img_tensor)
 
         if self.model.get_bw():
             raise NotImplementedError("Grayscale mode is not implemented")
@@ -150,7 +153,6 @@ class Detector:
             '.avi': 'video',
         }
         
-
         extension = target_filepath.suffix.lower()
         mode = mode_by_extension[extension]
         print("Detection Mode is: " + mode)
@@ -159,6 +161,7 @@ class Detector:
             img_with_bounding_boxes = self.detect_and_draw_bounding_boxes(Image.open(target_filepath))
             img_with_bounding_boxes.show()
         elif mode == 'video':
+            # raise NotImplementedError("Video detection is not implemented")
             self.video_detect(target_filepath, output_path)
 
     def video_detect(self, target_filepath: Path, output_path: Path):
