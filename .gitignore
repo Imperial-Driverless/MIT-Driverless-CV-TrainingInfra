@@ -1,6 +1,6 @@
 .pth
-*.mp4
-*.jpg
+# *.mp4
+# *.jpg
 *.png
 *.swp
 **/utils/gs/
