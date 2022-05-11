@@ -23,3 +23,6 @@
 
 CVC-YOLOv3/dataset/*
 CVC-YOLOv3/pretrained_yolo.weights
+
+RektNet/dataset/*
+
