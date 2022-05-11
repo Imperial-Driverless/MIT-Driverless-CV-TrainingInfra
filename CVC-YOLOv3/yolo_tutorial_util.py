@@ -31,7 +31,7 @@ from utils.utils import calculate_padding
 from tqdm import tqdm
 
 # Code added
-from crop_image import crop_image
+# from crop_image import crop_image
 
 cuda = torch.cuda.is_available()
 device = torch.device('cuda:0' if cuda else 'cpu')
