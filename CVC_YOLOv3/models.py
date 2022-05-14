@@ -7,8 +7,20 @@ import os
 from datetime import datetime
 import csv
 
-from utils.parse_config import parse_model_config
-from utils.utils import build_targets
+from .utils.parse_config import parse_model_config
+from .utils.utils import build_targets
+
+# from __future__ import division
+
+# import torch
+# import torch.nn as nn
+# import numpy as np
+# import os
+# from datetime import datetime
+# import csv
+
+# from utils.parse_config import parse_model_config
+# from utils.utils import build_targets
 
 vanilla_anchor_list = [[10, 13], [16, 30], [33, 23], [30, 61], [62, 45], [59, 119], [116, 90], [156, 198], [373, 326]]
 
