@@ -18,6 +18,7 @@ from tensorboardX import SummaryWriter
 from PIL import Image, ImageDraw
 
 import torchvision
+import torchvision.transforms.functional
 from CVC_YOLOv3.models import Darknet
 from CVC_YOLOv3.utils.datasets import ImageLabelDataset
 from CVC_YOLOv3.utils.nms import nms
@@ -278,13 +279,15 @@ class YOLO_N():
         self.nms_thres = nms_thres
         self.conf_thres = conf_thres
 
+        self.pad_h, self.pad_w, self.ratio = None, None, None
+
     def preprocess(self, img: Image.Image) -> torch.Tensor:
 
         img = img.convert('RGB')
         w, h = img.size
         new_width, new_height = self.model.img_size()
-        pad_h, pad_w, ratio = calculate_padding(h, w, new_height, new_width)
-        img = torchvision.transforms.functional.pad(img, padding=(pad_w, pad_h, pad_w, pad_h), fill=(127, 127, 127), padding_mode="constant")
+        self.pad_h, self.pad_w, self.ratio = calculate_padding(h, w, new_height, new_width)
+        img = torchvision.transforms.functional.pad(img, padding=(self.pad_w, self.pad_h, self.pad_w, self.pad_h), fill=(127, 127, 127), padding_mode="constant")
         img = torchvision.transforms.functional.resize(img, (new_height, new_width))
 
         bw = self.model.get_bw()
@@ -315,7 +318,16 @@ class YOLO_N():
             return main_box_corner
 
     def detectFrame(self, frame: Union[np.ndarray, torch.Tensor]) -> DetectionResults:
-        frame = torchvision.transforms.ToPILImage()(frame)
+        # frame = torchvision.transforms.ToPILImage()(frame)
         frame = self.preprocess(frame)
         box_corners = self.single_img_detect(frame)
         return box_corners
+
+    def crop_cones(self, original_img: Image.Image, detections: torch.Tensor):
+        for i in range(len(detections)):
+            x0 = detections[i, 0].to('cpu').item() / self.ratio - self.pad_w
+            y0 = detections[i, 1].to('cpu').item() / self.ratio - self.pad_h
+            x1 = detections[i, 2].to('cpu').item() / self.ratio - self.pad_w
+            y1 = detections[i, 3].to('cpu').item() / self.ratio - self.pad_h 
+            img = original_img.crop((x0, y0, x1, y1))
+            yield img

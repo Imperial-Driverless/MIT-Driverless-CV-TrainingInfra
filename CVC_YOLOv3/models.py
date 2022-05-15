@@ -348,6 +348,7 @@ class Darknet(nn.Module):
                 output.append(x)
             layer_outputs.append(x)
         return (sum(output), *total_losses) if is_training else torch.cat(output, 1)
+        
     def load_weights(self, weights_path, start_weight_dim):
         # Open the weights file
         with open(weights_path, "rb") as fp:
