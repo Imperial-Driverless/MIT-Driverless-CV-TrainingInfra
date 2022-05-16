@@ -302,8 +302,21 @@ class YOLO_N():
             img_tensor = img.to(self.device, non_blocking=True)
             output = self.model(img_tensor)
 
+            print("output shape: ", output.shape)
+            print("output: ", output)
+
             detections: torch.Tensor = output[0]
+
+            print("detections shape: ", detections.shape)
+            print("detections: ", detections)
+
             detections = detections[detections[:, 4] > self.conf_thres]
+
+            print("detections2 shape: ", detections.shape)
+
+            vongola = 0
+            print("\n\n\nTrying things out: ", torch.sum(detections[vongola,5:]), "\t", torch.argmax(detections[vongola,5:]))
+
             box_corner = torch.zeros((detections.shape[0], 4), device=detections.device)
             xy: torch.Tensor = detections[:, 0:2]
             wh = detections[:, 2:4] / 2
@@ -314,6 +327,11 @@ class YOLO_N():
             main_box_corner = box_corner[nms_indices]
             if nms_indices.shape[0] == 0:  
                 raise Exception("I don't even know what happened")
+
+            print("tavolino: ", detections[nms_indices[0],:])
+            for i in range(76):
+                cap = 5+i
+                print("naruto: ", torch.argmax(detections[nms_indices,cap:cap+4], dim=1)) #detections[:, 6])
             
             return main_box_corner
 

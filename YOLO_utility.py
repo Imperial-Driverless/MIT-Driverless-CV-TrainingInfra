@@ -6,7 +6,7 @@ import torchvision.transforms.functional
 from cone_classifier import classify_cone
 
 cone_classes = ['left', 'right', 'orange small', 'orange large']
-# img_loc = "vid_107_frame_46.jpg"
+# img_loc = "vid_108_frame_113.jpg"
 img_loc = "cone_screenshot.png"
 img = Image.open("dataset/YOLO_Dataset/" + img_loc)
 # img = torchvision.transforms.functional.to_tensor(img)
@@ -34,12 +34,12 @@ print(img)
 yolo = YOLO_N()
 ret = yolo.detectFrame(img)
 print(ret)
-cropped_cones = yolo.crop_cones(img, ret)
-for cone in cropped_cones:
-    # cone.show()
-    cone_class = classify_cone(cone)
-    print(cone_classes[cone_class])
-    input("press enter")
+# cropped_cones = yolo.crop_cones(img, ret)
+# for cone in cropped_cones:
+#     # cone.show()
+#     cone_class = classify_cone(cone)
+#     print(cone_classes[cone_class])
+#     input("press enter")
     # print(cone_class)
 
 

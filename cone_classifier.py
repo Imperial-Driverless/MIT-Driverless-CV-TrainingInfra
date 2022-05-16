@@ -39,12 +39,12 @@ def check_stripes(sat: torch.Tensor) -> int:
             stripe = check_neighbours(row_i, mid_col, px_weight)
             buffer = 0
         elif px == 0 and stripe is True:
-            # buffer += px_weight
-            # if buffer > 0.04:
-            # print(px)
-            print("stripe found")
-            n_stripes += 1
-            stripe = False
+            buffer += px_weight
+            if buffer > 0.04:
+                # print(px)
+                print("stripe found")
+                n_stripes += 1
+                stripe = False
 
     print(n_stripes)
 
@@ -65,7 +65,7 @@ def classify_cone(img: Image.Image) -> int:
     # print(hue)
     left = 207 #blue white stripe --> 0
     right = 60 #yellow black stripe --> 1
-    orange = 15 #orange --> 2, 3 depending on small (1 stripe) or large (2 stripes)
+    orange = 25 #orange --> 2, 3 depending on small (1 stripe) or large (2 stripes)
     colors = torch.Tensor((left, right, orange))
 
     #get a centered vertical region of interest
