@@ -9,7 +9,7 @@ import torch
 print(torch.__version__)
 
 cone_classes = ['left', 'right', 'orange small', 'orange large']
-img_loc = "vid_108_frame_113.jpg"
+img_loc = "vid_120_frame_5599.jpg"
 # img_loc = "cone_screenshot.png"
 img = Image.open("dataset/YOLO_Dataset/" + img_loc)
 # img = torchvision.transforms.functional.to_tensor(img)

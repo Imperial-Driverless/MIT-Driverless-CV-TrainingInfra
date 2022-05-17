@@ -33,7 +33,7 @@ class Classifier():
             i = -1
             delta = 2
             print("checking stripe")
-            while weight < 0.03:
+            while weight < 0.1:
                 neighbour = sat[row+i, col]
                 # print("The neighbour value is", neighbour.item())
                 if neighbour > 0:
@@ -46,8 +46,8 @@ class Classifier():
 
             return weight >= 0.03
 
-        sat = sat < 20
-        # ttf.to_pil_image(sat*255).show()
+        sat = sat < 30
+        ttf.to_pil_image(sat*255).show()
         px_weight = 1/sat.shape[1]
         sat = sat.type(torch.DoubleTensor) * px_weight
         # print("px w", px_weight)
@@ -63,7 +63,7 @@ class Classifier():
                 buffer = 0
             elif px == 0 and stripe is True:
                 buffer += px_weight
-                if buffer > 0.04:
+                if buffer > 0.1:
                     # print(px)
                     print("stripe found")
                     n_stripes += 1
@@ -98,7 +98,7 @@ class Classifier():
         roi2 = nana[:, roi_h_margin:height-roi_h_margin, roi_w_margin:width-roi_w_margin]
         # sat = sat[roi_h_margin:height-roi_h_margin, roi_w_margin:width-roi_w_margin]
 
-        ttf.to_pil_image(roi2).show()
+        # ttf.to_pil_image(roi2).show()
         # average_color = np.mean(roi)
 
         #check highest similarity
@@ -126,7 +126,7 @@ class Classifier():
         roi = hue[roi_h_margin:height-roi_h_margin, roi_w_margin:width-roi_w_margin]
         roi2 = nana[:, roi_h_margin:height-roi_h_margin, roi_w_margin:width-roi_w_margin]
 
-        ttf.to_pil_image(roi2).show()
+        # ttf.to_pil_image(roi2).show()
 
         cone_class = self.check_color(roi)
         if cone_class == 2:
