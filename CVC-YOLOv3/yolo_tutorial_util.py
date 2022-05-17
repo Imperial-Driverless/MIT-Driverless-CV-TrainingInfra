@@ -138,7 +138,7 @@ def single_img_detect(target_path,output_path,mode,model,device,conf_thres,nms_t
             y0 = main_box_corner[i, 1].to('cpu').item() / ratio - pad_h
             x1 = main_box_corner[i, 2].to('cpu').item() / ratio - pad_w
             y1 = main_box_corner[i, 3].to('cpu').item() / ratio - pad_h
-            cropped_image = img.crop((x0, y0, x1, y1))
+            cropped_image = img_with_boxes.crop((x0, y0, x1, y1))
             cropped_image.save(os.path.join(cones_path, target_cones_path.split('/')[-1]))
             draw.rectangle((x0, y0, x1, y1), outline="red")
             d += 1
