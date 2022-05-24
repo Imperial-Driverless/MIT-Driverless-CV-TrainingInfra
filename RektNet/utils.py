@@ -234,8 +234,6 @@ def load_train_csv_dataset(train_csv_uri, validation_percent, keypoint_keys, dat
 
     return train_images, train_labels, val_images, val_labels
 
-
-
 def calculate_distance(target_points,pred_points):
     dist_matrix = []
     for i, point  in enumerate(target_points[0]):

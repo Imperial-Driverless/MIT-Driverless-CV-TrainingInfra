@@ -67,6 +67,11 @@ def print_kpt_L2_distance(model, dataloader, kpt_keys, study_name, evaluate_mode
         validation_textfile = open('logs/rektnet_validation.txt', 'a')
 
     for x_batch, y_hm_batch, y_point_batch, _, image_shape in dataloader:
+        """
+        x_batch: tensor of RGB image (shape: [1, 3, 80, 80])
+        y_hm_batch: tensor of heatmap of image for each heatpoint (shape: [1, 7, 80, 80])
+        y_point_batch: tensor containing the coordinates of the keypoints (proportional to image size so between 0 and 1) (shape: [1, 7, 2])
+        """
         x_batch = x_batch.to(device)
         y_hm_batch = y_hm_batch.to(device)
         y_point_batch = y_point_batch.to(device)
@@ -91,8 +96,8 @@ def print_kpt_L2_distance(model, dataloader, kpt_keys, study_name, evaluate_mode
             single_img_kpt_dis_sum = sum(kpt_dis) 
             validation_textfile.write(f"{[width.numpy()[0],height.numpy()[0]]}:{single_img_kpt_dis_sum}\n")
         ###########################################################################
-
         kpt_distances.append(kpt_dis)
+        
     if evaluate_mode:
         validation_textfile.close()
     final_stats, total_dist, final_stats_std = calculate_mean_distance(kpt_distances)
