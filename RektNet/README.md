@@ -1,6 +1,8 @@
 ### Description
 
-This is our custom Key Points detection network
+Look at ```calc_dist_cone.py```. This algorithm performs two things:
+1. ```calc_keypoints``` detects the 7 keypoints of the cone using the detection network ```KeypointNet```
+2. ```calc_dist_cone```calculates the distance from the camera to the cone using the size of the cone in the real world and the size of the cone in the image using the function ```given_real_and_pixels_get_distance```.
 
 ## Requirements:
 

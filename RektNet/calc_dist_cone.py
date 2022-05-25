@@ -73,7 +73,6 @@ def calc_dist_cone(image_filepath="test_kpt.png", label="N/A"):
     Object_width_meters = 0.228
 
     # Camera specifications
-    #Sensor 
     camera_specifications = {
         "Sensor_length_mms": 7.410, #mm
         "Sensor_width_mms": 4.980, #mm
@@ -138,13 +137,13 @@ def given_real_and_pixels_get_distance(Object_length_meters,Object_width_meters,
     return distance_length,distance_width
     
 if __name__ == "__main__":
-    # TODO: Calculate the Camera Matrix
-    # TODO: Calculate the distortion coefficient
+    """
     # TODO: The problem is that all Perspective-n-point algorithms require the object points 
     # meaning the keypoints of the cone in real life, something which we do not have.
-    # We could use the cones actual dimensions and see how we can compare it to the dimensions given by the keypoints,
-    # but I doubt it is going to be very accurate.
-    # TODO: We would need the focal length of the camera.
+    # What we have done in this algorithm is use the cones actual dimensions, the size of the object in the image 
+    # and the intrinsic camera parmeters. From there calculate the distance to the cone.
+    """    
+    # TODO: Get the true camera_specifications
 
     # calc_keypoints()
     calc_dist_cone()
