@@ -1,6 +1,6 @@
 .pth
-*.mp4
-*.jpg
+# *.mp4
+# *.jpg
 *.png
 *.swp
 **/utils/gs/
@@ -21,6 +21,8 @@
 .python-version
 */gs/*
 
-**/dataset
-**/yolo_weights
-**/rektnet_weights
+CVC-YOLOv3/dataset/*
+CVC-YOLOv3/pretrained_yolo.weights
+
+RektNet/dataset/*
+venv1/*
